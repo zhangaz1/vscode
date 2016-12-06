@@ -6,6 +6,7 @@
 'use strict';
 
 import * as path from 'path';
+import * as fs from 'fs';
 import * as platform from 'vs/base/common/platform';
 import * as objects from 'vs/base/common/objects';
 import { IStorageService } from 'vs/code/electron-main/storage';
@@ -18,6 +19,9 @@ import { parseArgs } from 'vs/platform/environment/node/argv';
 import product from 'vs/platform/product';
 import { getCommonHTTPHeaders } from 'vs/platform/environment/node/http';
 import { IWindowSettings } from 'vs/platform/windows/common/windows';
+
+
+var profiler: any = require.__$__nodeRequire('v8-profiler');
 
 export interface IWindowState {
 	width?: number;
@@ -418,6 +422,12 @@ export class VSCodeWindow implements IVSCodeWindow {
 		if (platform.isMacintosh && this._win.isDocumentEdited()) {
 			this._win.setDocumentEdited(false);
 		}
+
+		var profile = profiler.stopProfiling('');
+		profile.export(function (error, result) {
+			fs.writeFileSync('/Users/bpasero/Development/Microsoft/monaco/profile1.json', result);
+			profile.delete();
+		});
 
 		// Load URL
 		this._win.loadURL(this.getUrl(config));

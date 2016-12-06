@@ -72,6 +72,11 @@
       "from": "bpasero/chokidar#vscode",
       "resolved": "git+https://github.com/bpasero/chokidar.git#8b64fda5a22cc9850f1346d12302051c5ba65b10"
     },
+    "v8-profiler": {
+      "version": "5.6.5",
+      "from": "jrieken/v8-profiler#master",
+      "resolved": "git+https://github.com/jrieken/v8-profiler.git#bc0803a4d4b2150b8a1bbffa80270769007036c2"
+    },
     "concat-map": {
       "version": "0.0.1",
       "from": "concat-map@0.0.1",

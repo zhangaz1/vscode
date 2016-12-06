@@ -5,6 +5,9 @@
 
 'use strict';
 
+var profiler = require('v8-profiler');
+profiler.startProfiling();
+
 // Perf measurements
 global.perfStartTime = Date.now();
 
