@@ -7,14 +7,12 @@
 import * as strings from 'vs/base/common/strings';
 import { TPromise } from 'vs/base/common/winjs.base';
 import { EditorInput, EditorModel, ITextEditorModel } from 'vs/workbench/common/editor';
-import URI from 'vs/base/common/uri';
+import { URI } from 'vs/base/common/uri';
 import { IReference, IDisposable, dispose } from 'vs/base/common/lifecycle';
 import { telemetryURIDescriptor } from 'vs/platform/telemetry/common/telemetryUtils';
 import { ITextModelService } from 'vs/editor/common/services/resolverService';
-import { marked } from 'vs/base/common/marked/marked';
+import * as marked from 'vs/base/common/marked/marked';
 import { Schemas } from 'vs/base/common/network';
-import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
-import { ILifecycleService, ShutdownReason } from 'vs/platform/lifecycle/common/lifecycle';
 import { IHashService } from 'vs/workbench/services/hash/common/hashService';
 
 export class WalkThroughModel extends EditorModel {
@@ -56,19 +54,15 @@ export class WalkThroughInput extends EditorInput {
 
 	private promise: TPromise<WalkThroughModel>;
 
-	private resolveTime: number;
 	private maxTopScroll = 0;
 	private maxBottomScroll = 0;
 
 	constructor(
 		private options: WalkThroughInputOptions,
-		@ITelemetryService private telemetryService: ITelemetryService,
-		@ILifecycleService lifecycleService: ILifecycleService,
 		@ITextModelService private textModelResolverService: ITextModelService,
 		@IHashService private hashService: IHashService
 	) {
 		super();
-		this.disposables.push(lifecycleService.onShutdown(e => this.disposeTelemetry(e)));
 	}
 
 	getResource(): URI {
@@ -108,9 +102,8 @@ export class WalkThroughInput extends EditorInput {
 		return this.options.onReady;
 	}
 
-	resolve(refresh?: boolean): TPromise<WalkThroughModel> {
+	resolve(): TPromise<WalkThroughModel> {
 		if (!this.promise) {
-			this.resolveTelemetry();
 			this.promise = this.textModelResolverService.createModelReference(this.options.resource)
 				.then(ref => {
 					if (strings.endsWith(this.getResource().path, '.html')) {
@@ -160,49 +153,11 @@ export class WalkThroughInput extends EditorInput {
 			this.promise = null;
 		}
 
-		this.disposeTelemetry();
-
 		super.dispose();
 	}
 
 	public relativeScrollPosition(topScroll: number, bottomScroll: number) {
 		this.maxTopScroll = Math.max(this.maxTopScroll, topScroll);
 		this.maxBottomScroll = Math.max(this.maxBottomScroll, bottomScroll);
-	}
-
-	private resolveTelemetry() {
-		if (!this.resolveTime) {
-			this.resolveTime = Date.now();
-			/* __GDPR__
-				"resolvingInput" : {
-					"target" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
-				}
-			*/
-			this.telemetryService.publicLog('resolvingInput', {
-				target: this.getTelemetryFrom(),
-			});
-		}
-	}
-
-	private disposeTelemetry(reason?: ShutdownReason) {
-		if (this.resolveTime) {
-			/* __GDPR__
-				"disposingInput" : {
-					"target" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
-					"timeSpent": { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" },
-					"reason": { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
-					"maxTopScroll": { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
-					"maxBottomScroll": { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
-				}
-			*/
-			this.telemetryService.publicLog('disposingInput', {
-				target: this.getTelemetryFrom(),
-				timeSpent: (Date.now() - this.resolveTime) / 60,
-				reason: reason ? ShutdownReason[reason] : 'DISPOSE',
-				maxTopScroll: this.maxTopScroll,
-				maxBottomScroll: this.maxBottomScroll,
-			});
-			this.resolveTime = null;
-		}
 	}
 }

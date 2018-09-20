@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 'use strict';
 
-import { IntervalTimer, ShallowCancelThenPromise, wireCancellationToken } from 'vs/base/common/async';
-import { Disposable, IDisposable, dispose } from 'vs/base/common/lifecycle';
-import URI from 'vs/base/common/uri';
+import { IntervalTimer } from 'vs/base/common/async';
+import { Disposable, IDisposable, dispose, toDisposable } from 'vs/base/common/lifecycle';
+import { URI } from 'vs/base/common/uri';
 import { TPromise } from 'vs/base/common/winjs.base';
 import { SimpleWorkerClient, logOnceWebWorkerWarning } from 'vs/base/common/worker/simpleWorker';
 import { DefaultWorkerFactory } from 'vs/base/worker/defaultWorkerFactory';
@@ -20,6 +20,7 @@ import { LanguageConfigurationRegistry } from 'vs/editor/common/modes/languageCo
 import { ITextResourceConfigurationService } from 'vs/editor/common/services/resourceConfiguration';
 import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
 import { IRange } from 'vs/editor/common/core/range';
+import { ITextModel } from 'vs/editor/common/model';
 
 /**
  * Stop syncing a model to the worker if it was not needed for 1 min.
@@ -36,7 +37,7 @@ function canSyncModel(modelService: IModelService, resource: URI): boolean {
 	if (!model) {
 		return false;
 	}
-	if (model.isTooLargeForTokenization()) {
+	if (model.isTooLargeForSyncing()) {
 		return false;
 	}
 	return true;
@@ -62,7 +63,7 @@ export class EditorWorkerServiceImpl extends Disposable implements IEditorWorker
 				if (!canSyncModel(this._modelService, model.uri)) {
 					return TPromise.as([]); // File too large
 				}
-				return wireCancellationToken(token, this._workerManager.withWorker().then(client => client.computeLinks(model.uri)));
+				return this._workerManager.withWorker().then(client => client.computeLinks(model.uri));
 			}
 		}));
 		this._register(modes.SuggestRegistry.register('*', new WordBasedCompletionItemProvider(this._workerManager, configurationService, this._modelService)));
@@ -124,8 +125,8 @@ class WordBasedCompletionItemProvider implements modes.ISuggestSupport {
 		this._modelService = modelService;
 	}
 
-	provideCompletionItems(model: editorCommon.IModel, position: Position): TPromise<modes.ISuggestResult> {
-		const { wordBasedSuggestions } = this._configurationService.getConfiguration<IEditorOptions>(model.uri, position, 'editor');
+	provideCompletionItems(model: ITextModel, position: Position): TPromise<modes.ISuggestResult> {
+		const { wordBasedSuggestions } = this._configurationService.getValue<IEditorOptions>(model.uri, position, 'editor');
 		if (!wordBasedSuggestions) {
 			return undefined;
 		}
@@ -264,7 +265,7 @@ class EditorModelManager extends Disposable {
 		if (!model) {
 			return;
 		}
-		if (model.isTooLargeForTokenization()) {
+		if (model.isTooLargeForSyncing()) {
 			return;
 		}
 
@@ -284,11 +285,9 @@ class EditorModelManager extends Disposable {
 		toDispose.push(model.onWillDispose(() => {
 			this._stopModelSync(modelUrl);
 		}));
-		toDispose.push({
-			dispose: () => {
-				this._proxy.acceptRemovedModel(modelUrl);
-			}
-		});
+		toDispose.push(toDisposable(() => {
+			this._proxy.acceptRemovedModel(modelUrl);
+		}));
 
 		this._syncedModels[modelUrl] = toDispose;
 	}
@@ -322,7 +321,7 @@ class SynchronousWorkerClient<T extends IDisposable> implements IWorkerClient<T>
 	}
 
 	public getProxyObject(): TPromise<T> {
-		return new ShallowCancelThenPromise(this._proxyObj);
+		return this._proxyObj;
 	}
 }
 
@@ -350,18 +349,18 @@ export class EditorWorkerClient extends Disposable {
 				));
 			} catch (err) {
 				logOnceWebWorkerWarning(err);
-				this._worker = new SynchronousWorkerClient(new EditorSimpleWorkerImpl());
+				this._worker = new SynchronousWorkerClient(new EditorSimpleWorkerImpl(null));
 			}
 		}
 		return this._worker;
 	}
 
 	protected _getProxy(): TPromise<EditorSimpleWorkerImpl> {
-		return new ShallowCancelThenPromise(this._getOrCreateWorker().getProxyObject().then(null, (err) => {
+		return this._getOrCreateWorker().getProxyObject().then(null, (err) => {
 			logOnceWebWorkerWarning(err);
-			this._worker = new SynchronousWorkerClient(new EditorSimpleWorkerImpl());
+			this._worker = new SynchronousWorkerClient(new EditorSimpleWorkerImpl(null));
 			return this._getOrCreateWorker().getProxyObject();
-		}));
+		});
 	}
 
 	private _getOrCreateModelManager(proxy: EditorSimpleWorkerImpl): EditorModelManager {

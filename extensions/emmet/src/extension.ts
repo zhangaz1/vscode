@@ -45,7 +45,11 @@ export function activate(context: vscode.ExtensionContext) {
 			return updateTag(inputTag);
 		}
 		return vscode.window.showInputBox({ prompt: 'Enter Tag' }).then(tagName => {
-			return updateTag(tagName);
+			if (tagName) {
+				const update = updateTag(tagName);
+				return update ? update : false;
+			}
+			return false;
 		});
 	}));
 
@@ -149,12 +153,15 @@ function registerCompletionProviders(context: vscode.ExtensionContext) {
 		}
 
 		if (languageMappingForCompletionProviders.has(language)) {
-			completionProvidersMapping.get(language).dispose();
+			const mapping = completionProvidersMapping.get(language);
+			if (mapping) {
+				mapping.dispose();
+			}
 			languageMappingForCompletionProviders.delete(language);
 			completionProvidersMapping.delete(language);
 		}
 
-		const provider = vscode.languages.registerCompletionItemProvider(language, completionProvider, ...LANGUAGE_MODES[includedLanguages[language]]);
+		const provider = vscode.languages.registerCompletionItemProvider([{ language, scheme: 'file' }, { language, scheme: 'untitled' }], completionProvider, ...LANGUAGE_MODES[includedLanguages[language]]);
 		context.subscriptions.push(provider);
 
 		languageMappingForCompletionProviders.set(language, includedLanguages[language]);
@@ -163,7 +170,7 @@ function registerCompletionProviders(context: vscode.ExtensionContext) {
 
 	Object.keys(LANGUAGE_MODES).forEach(language => {
 		if (!languageMappingForCompletionProviders.has(language)) {
-			const provider = vscode.languages.registerCompletionItemProvider(language, completionProvider, ...LANGUAGE_MODES[language]);
+			const provider = vscode.languages.registerCompletionItemProvider([{ language, scheme: 'file' }, { language, scheme: 'untitled' }], completionProvider, ...LANGUAGE_MODES[language]);
 			context.subscriptions.push(provider);
 
 			languageMappingForCompletionProviders.set(language, language);

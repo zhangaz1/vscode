@@ -11,7 +11,6 @@ import { Registry } from 'vs/platform/registry/common/platform';
 import { BaseEditor } from 'vs/workbench/browser/parts/editor/baseEditor';
 import { IConstructorSignature0, IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { isArray } from 'vs/base/common/types';
-import URI from 'vs/base/common/uri';
 
 export interface IEditorDescriptor {
 	instantiate(instantiationService: IInstantiationService): BaseEditor;
@@ -67,19 +66,19 @@ export class EditorDescriptor implements IEditorDescriptor {
 		this.name = name;
 	}
 
-	public instantiate(instantiationService: IInstantiationService): BaseEditor {
+	instantiate(instantiationService: IInstantiationService): BaseEditor {
 		return instantiationService.createInstance(this.ctor);
 	}
 
-	public getId(): string {
+	getId(): string {
 		return this.id;
 	}
 
-	public getName(): string {
+	getName(): string {
 		return this.name;
 	}
 
-	public describes(obj: any): boolean {
+	describes(obj: any): boolean {
 		return obj instanceof BaseEditor && (<BaseEditor>obj).getId() === this.id;
 	}
 }
@@ -87,15 +86,11 @@ export class EditorDescriptor implements IEditorDescriptor {
 const INPUT_DESCRIPTORS_PROPERTY = '__$inputDescriptors';
 
 class EditorRegistry implements IEditorRegistry {
-	private editors: EditorDescriptor[];
+	private editors: EditorDescriptor[] = [];
 
-	constructor() {
-		this.editors = [];
-	}
-
-	public registerEditor(descriptor: EditorDescriptor, editorInputDescriptor: SyncDescriptor<EditorInput>): void;
-	public registerEditor(descriptor: EditorDescriptor, editorInputDescriptor: SyncDescriptor<EditorInput>[]): void;
-	public registerEditor(descriptor: EditorDescriptor, editorInputDescriptor: any): void {
+	registerEditor(descriptor: EditorDescriptor, editorInputDescriptor: SyncDescriptor<EditorInput>): void;
+	registerEditor(descriptor: EditorDescriptor, editorInputDescriptor: SyncDescriptor<EditorInput>[]): void;
+	registerEditor(descriptor: EditorDescriptor, editorInputDescriptor: any): void {
 
 		// Support both non-array and array parameter
 		let inputDescriptors: SyncDescriptor<EditorInput>[] = [];
@@ -110,7 +105,7 @@ class EditorRegistry implements IEditorRegistry {
 		this.editors.push(descriptor);
 	}
 
-	public getEditor(input: EditorInput): EditorDescriptor {
+	getEditor(input: EditorInput): EditorDescriptor {
 		const findEditorDescriptors = (input: EditorInput, byInstanceOf?: boolean): EditorDescriptor[] => {
 			const matchingDescriptors: EditorDescriptor[] = [];
 
@@ -162,7 +157,7 @@ class EditorRegistry implements IEditorRegistry {
 		return null;
 	}
 
-	public getEditorById(editorId: string): EditorDescriptor {
+	getEditorById(editorId: string): EditorDescriptor {
 		for (let i = 0; i < this.editors.length; i++) {
 			const editor = this.editors[i];
 			if (editor.getId() === editorId) {
@@ -173,15 +168,15 @@ class EditorRegistry implements IEditorRegistry {
 		return null;
 	}
 
-	public getEditors(): EditorDescriptor[] {
+	getEditors(): EditorDescriptor[] {
 		return this.editors.slice(0);
 	}
 
-	public setEditors(editorsToSet: EditorDescriptor[]): void {
+	setEditors(editorsToSet: EditorDescriptor[]): void {
 		this.editors = editorsToSet;
 	}
 
-	public getEditorInputs(): any[] {
+	getEditorInputs(): any[] {
 		const inputClasses: any[] = [];
 		for (let i = 0; i < this.editors.length; i++) {
 			const editor = this.editors[i];
@@ -198,42 +193,3 @@ export const Extensions = {
 };
 
 Registry.add(Extensions.Editors, new EditorRegistry());
-
-export interface IDraggedResource {
-	resource: URI;
-	isExternal: boolean;
-}
-
-export function extractResources(e: DragEvent, externalOnly?: boolean): IDraggedResource[] {
-	const resources: IDraggedResource[] = [];
-	if (e.dataTransfer.types.length > 0) {
-
-		// Check for in-app DND
-		if (!externalOnly) {
-			const rawData = e.dataTransfer.getData('URL');
-			if (rawData) {
-				try {
-					resources.push({ resource: URI.parse(rawData), isExternal: false });
-				} catch (error) {
-					// Invalid URI
-				}
-			}
-		}
-
-		// Check for native file transfer
-		if (e.dataTransfer && e.dataTransfer.files) {
-			for (let i = 0; i < e.dataTransfer.files.length; i++) {
-				const file = e.dataTransfer.files[i] as { path: string };
-				if (file && file.path) {
-					try {
-						resources.push({ resource: URI.file(file.path), isExternal: true });
-					} catch (error) {
-						// Invalid URI
-					}
-				}
-			}
-		}
-	}
-
-	return resources;
-}

@@ -8,20 +8,21 @@ import * as nls from 'vs/nls';
 import { KeyCode, KeyMod } from 'vs/base/common/keyCodes';
 import { dispose } from 'vs/base/common/lifecycle';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
-import { ICommonCodeEditor, IEditorContribution } from 'vs/editor/common/editorCommon';
+import { IEditorContribution } from 'vs/editor/common/editorCommon';
 import { EditorContextKeys } from 'vs/editor/common/editorContextKeys';
 import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
 import { registerEditorAction, registerEditorContribution, ServicesAccessor, EditorAction, EditorCommand, registerEditorCommand } from 'vs/editor/browser/editorExtensions';
 import { ICodeEditor } from 'vs/editor/browser/editorBrowser';
 import { ParameterHintsWidget } from './parameterHintsWidget';
 import { Context } from 'vs/editor/contrib/parameterHints/provideSignatureHelp';
-import { KeybindingsRegistry } from 'vs/platform/keybinding/common/keybindingsRegistry';
+import { KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
+import * as modes from 'vs/editor/common/modes';
 
 class ParameterHintsController implements IEditorContribution {
 
-	private static ID = 'editor.controller.parameterHints';
+	private static readonly ID = 'editor.controller.parameterHints';
 
-	public static get(editor: ICommonCodeEditor): ParameterHintsController {
+	public static get(editor: ICodeEditor): ParameterHintsController {
 		return editor.getContribution<ParameterHintsController>(ParameterHintsController.ID);
 	}
 
@@ -49,8 +50,8 @@ class ParameterHintsController implements IEditorContribution {
 		this.widget.next();
 	}
 
-	trigger(): void {
-		this.widget.trigger();
+	trigger(context: modes.SignatureHelpContext): void {
+		this.widget.trigger(context);
 	}
 
 	dispose(): void {
@@ -67,16 +68,17 @@ export class TriggerParameterHintsAction extends EditorAction {
 			alias: 'Trigger Parameter Hints',
 			precondition: EditorContextKeys.hasSignatureHelpProvider,
 			kbOpts: {
-				kbExpr: EditorContextKeys.textFocus,
-				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Space
+				kbExpr: EditorContextKeys.editorTextFocus,
+				primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Space,
+				weight: KeybindingWeight.EditorContrib
 			}
 		});
 	}
 
-	public run(accessor: ServicesAccessor, editor: ICommonCodeEditor): void {
+	public run(accessor: ServicesAccessor, editor: ICodeEditor): void {
 		let controller = ParameterHintsController.get(editor);
 		if (controller) {
-			controller.trigger();
+			controller.trigger({ triggerReason: modes.SignatureHelpTriggerReason.Invoke });
 		}
 	}
 }
@@ -84,7 +86,7 @@ export class TriggerParameterHintsAction extends EditorAction {
 registerEditorContribution(ParameterHintsController);
 registerEditorAction(TriggerParameterHintsAction);
 
-const weight = KeybindingsRegistry.WEIGHT.editorContrib(75);
+const weight = KeybindingWeight.EditorContrib + 75;
 
 const ParameterHintsCommand = EditorCommand.bindToContribution<ParameterHintsController>(ParameterHintsController.get);
 
@@ -94,7 +96,7 @@ registerEditorCommand(new ParameterHintsCommand({
 	handler: x => x.cancel(),
 	kbOpts: {
 		weight: weight,
-		kbExpr: EditorContextKeys.textFocus,
+		kbExpr: EditorContextKeys.editorTextFocus,
 		primary: KeyCode.Escape,
 		secondary: [KeyMod.Shift | KeyCode.Escape]
 	}
@@ -105,7 +107,7 @@ registerEditorCommand(new ParameterHintsCommand({
 	handler: x => x.previous(),
 	kbOpts: {
 		weight: weight,
-		kbExpr: EditorContextKeys.textFocus,
+		kbExpr: EditorContextKeys.editorTextFocus,
 		primary: KeyCode.UpArrow,
 		secondary: [KeyMod.Alt | KeyCode.UpArrow],
 		mac: { primary: KeyCode.UpArrow, secondary: [KeyMod.Alt | KeyCode.UpArrow, KeyMod.WinCtrl | KeyCode.KEY_P] }
@@ -117,7 +119,7 @@ registerEditorCommand(new ParameterHintsCommand({
 	handler: x => x.next(),
 	kbOpts: {
 		weight: weight,
-		kbExpr: EditorContextKeys.textFocus,
+		kbExpr: EditorContextKeys.editorTextFocus,
 		primary: KeyCode.DownArrow,
 		secondary: [KeyMod.Alt | KeyCode.DownArrow],
 		mac: { primary: KeyCode.DownArrow, secondary: [KeyMod.Alt | KeyCode.DownArrow, KeyMod.WinCtrl | KeyCode.KEY_N] }

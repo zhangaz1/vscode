@@ -5,10 +5,11 @@
 'use strict';
 
 import * as nls from 'vs/nls';
-import { ICommand, ICommonCodeEditor } from 'vs/editor/common/editorCommon';
+import { ICommand } from 'vs/editor/common/editorCommon';
 import { EditorContextKeys } from 'vs/editor/common/editorContextKeys';
 import { IActionOptions, registerEditorAction, EditorAction, ServicesAccessor } from 'vs/editor/browser/editorExtensions';
 import { MoveCaretCommand } from './moveCaretCommand';
+import { ICodeEditor } from 'vs/editor/browser/editorBrowser';
 
 class MoveCaretAction extends EditorAction {
 
@@ -20,12 +21,12 @@ class MoveCaretAction extends EditorAction {
 		this.left = left;
 	}
 
-	public run(accessor: ServicesAccessor, editor: ICommonCodeEditor): void {
+	public run(accessor: ServicesAccessor, editor: ICodeEditor): void {
 
-		var commands: ICommand[] = [];
-		var selections = editor.getSelections();
+		let commands: ICommand[] = [];
+		let selections = editor.getSelections();
 
-		for (var i = 0; i < selections.length; i++) {
+		for (let i = 0; i < selections.length; i++) {
 			commands.push(new MoveCaretCommand(selections[i], this.left));
 		}
 

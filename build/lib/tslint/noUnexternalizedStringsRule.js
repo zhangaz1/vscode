@@ -4,9 +4,12 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 var __extends = (this && this.__extends) || (function () {
-    var extendStatics = Object.setPrototypeOf ||
-        ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
-        function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+    var extendStatics = function (d, b) {
+        extendStatics = Object.setPrototypeOf ||
+            ({ __proto__: [] } instanceof Array && function (d, b) { d.__proto__ = b; }) ||
+            function (d, b) { for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p]; };
+        return extendStatics(d, b);
+    }
     return function (d, b) {
         extendStatics(d, b);
         function __() { this.constructor = d; }
@@ -136,16 +139,24 @@ var NoUnexternalizedStringsRuleWalker = /** @class */ (function (_super) {
                 }
             }
         }
-        var messageArg = callInfo.argIndex === this.messageIndex
-            ? callInfo.callExpression.arguments[this.messageIndex]
-            : null;
-        if (messageArg && messageArg !== node) {
+        var messageArg = callInfo.callExpression.arguments[this.messageIndex];
+        if (messageArg && messageArg.kind !== ts.SyntaxKind.StringLiteral) {
             this.addFailure(this.createFailure(messageArg.getStart(), messageArg.getWidth(), "Message argument to '" + callInfo.callExpression.expression.getText() + "' must be a string literal."));
             return;
         }
     };
     NoUnexternalizedStringsRuleWalker.prototype.recordKey = function (keyNode, messageNode) {
         var text = keyNode.getText();
+        // We have an empty key
+        if (text.match(/(['"]) *\1/)) {
+            if (messageNode) {
+                this.addFailureAtNode(keyNode, "Key is empty for message: " + messageNode.getText());
+            }
+            else {
+                this.addFailureAtNode(keyNode, "Key is empty.");
+            }
+            return;
+        }
         var occurrences = this.usedKeys[text];
         if (!occurrences) {
             occurrences = [];
@@ -178,7 +189,7 @@ var NoUnexternalizedStringsRuleWalker = /** @class */ (function (_super) {
             node = parent;
         }
     };
-    NoUnexternalizedStringsRuleWalker.ImportFailureMessage = 'Do not use double qoutes for imports.';
+    NoUnexternalizedStringsRuleWalker.ImportFailureMessage = 'Do not use double quotes for imports.';
     NoUnexternalizedStringsRuleWalker.DOUBLE_QUOTE = '"';
     return NoUnexternalizedStringsRuleWalker;
 }(Lint.RuleWalker));

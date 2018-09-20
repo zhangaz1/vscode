@@ -14,22 +14,30 @@ import { ICommandHandlerDescription } from 'vs/platform/commands/common/commands
 
 export class CursorMoveCommands {
 
-	public static addCursorDown(context: CursorContext, cursors: CursorState[]): CursorState[] {
+	public static addCursorDown(context: CursorContext, cursors: CursorState[], useLogicalLine: boolean): CursorState[] {
 		let result: CursorState[] = [], resultLen = 0;
 		for (let i = 0, len = cursors.length; i < len; i++) {
 			const cursor = cursors[i];
 			result[resultLen++] = new CursorState(cursor.modelState, cursor.viewState);
-			result[resultLen++] = CursorState.fromViewState(MoveOperations.translateDown(context.config, context.viewModel, cursor.viewState));
+			if (useLogicalLine) {
+				result[resultLen++] = CursorState.fromModelState(MoveOperations.translateDown(context.config, context.model, cursor.modelState));
+			} else {
+				result[resultLen++] = CursorState.fromViewState(MoveOperations.translateDown(context.config, context.viewModel, cursor.viewState));
+			}
 		}
 		return result;
 	}
 
-	public static addCursorUp(context: CursorContext, cursors: CursorState[]): CursorState[] {
+	public static addCursorUp(context: CursorContext, cursors: CursorState[], useLogicalLine: boolean): CursorState[] {
 		let result: CursorState[] = [], resultLen = 0;
 		for (let i = 0, len = cursors.length; i < len; i++) {
 			const cursor = cursors[i];
 			result[resultLen++] = new CursorState(cursor.modelState, cursor.viewState);
-			result[resultLen++] = CursorState.fromViewState(MoveOperations.translateUp(context.config, context.viewModel, cursor.viewState));
+			if (useLogicalLine) {
+				result[resultLen++] = CursorState.fromModelState(MoveOperations.translateUp(context.config, context.model, cursor.modelState));
+			} else {
+				result[resultLen++] = CursorState.fromViewState(MoveOperations.translateUp(context.config, context.viewModel, cursor.viewState));
+			}
 		}
 		return result;
 	}
@@ -155,22 +163,6 @@ export class CursorMoveCommands {
 	}
 
 	public static selectAll(context: CursorContext, cursor: CursorState): CursorState {
-
-		if (context.model.hasEditableRange()) {
-			// Toggle between selecting editable range and selecting the entire buffer
-
-			const editableRange = context.model.getEditableRange();
-			const selection = cursor.modelState.selection;
-
-			if (!selection.equalsRange(editableRange)) {
-				// Selection is not editable range => select editable range
-				return CursorState.fromModelState(new SingleCursorState(
-					new Range(editableRange.startLineNumber, editableRange.startColumn, editableRange.startLineNumber, editableRange.startColumn), 0,
-					new Position(editableRange.endLineNumber, editableRange.endColumn), 0
-				));
-			}
-		}
-
 		const lineCount = context.model.getLineCount();
 		const maxColumn = context.model.getLineMaxColumn(lineCount);
 
@@ -615,7 +607,7 @@ export namespace CursorMove {
 						\`\`\`
 						'left', 'right', 'up', 'down'
 						'wrappedLineStart', 'wrappedLineEnd', 'wrappedLineColumnCenter'
-						'wrappedLineFirstNonWhitespaceCharacter', 'wrappedLineLastNonWhitespaceCharacter',
+						'wrappedLineFirstNonWhitespaceCharacter', 'wrappedLineLastNonWhitespaceCharacter'
 						'viewPortTop', 'viewPortCenter', 'viewPortBottom', 'viewPortIfOutside'
 						\`\`\`
 					* 'by': Unit to move. Default is computed based on 'to' value.

@@ -13,7 +13,7 @@ import product from 'vs/platform/node/product';
 
 export class GettingStarted implements IWorkbenchContribution {
 
-	private static hideWelcomeSettingskey = 'workbench.hide.welcome';
+	private static readonly hideWelcomeSettingskey = 'workbench.hide.welcome';
 
 	private welcomePageURL: string;
 	private appName: string;
@@ -25,15 +25,20 @@ export class GettingStarted implements IWorkbenchContribution {
 	) {
 		this.appName = product.nameLong;
 
-		/* do not open a browser when we run an extension or --skip-getting-started is provided */
-		if (product.welcomePage && !environmentService.isExtensionDevelopment && !environmentService.skipGettingStarted) {
-			this.welcomePageURL = product.welcomePage;
-			this.handleWelcome();
+		if (!product.welcomePage) {
+			return;
 		}
-	}
 
-	getId(): string {
-		return 'vs.gettingstarted';
+		if (environmentService.skipGettingStarted) {
+			return;
+		}
+
+		if (environmentService.isExtensionDevelopment) {
+			return;
+		}
+
+		this.welcomePageURL = product.welcomePage;
+		this.handleWelcome();
 	}
 
 	private getUrl(telemetryInfo: ITelemetryInfo): string {
@@ -43,7 +48,7 @@ export class GettingStarted implements IWorkbenchContribution {
 	private openExternal(url: string) {
 		// Don't open the welcome page as the root user on Linux, this is due to a bug with xdg-open
 		// which recommends against running itself as root.
-		if (platform.isLinux && platform.isRootUser) {
+		if (platform.isLinux && platform.isRootUser()) {
 			return;
 		}
 		window.open(url);

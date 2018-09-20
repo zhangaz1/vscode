@@ -5,33 +5,41 @@
 
 'use strict';
 
-import Event, { filterEvent, mapEvent, anyEvent } from 'vs/base/common/event';
+import { Event, filterEvent, mapEvent, anyEvent } from 'vs/base/common/event';
 import { TPromise } from 'vs/base/common/winjs.base';
-import { IWindowService, IWindowsService, INativeOpenDialogOptions, IEnterWorkspaceResult, IMessageBoxResult } from 'vs/platform/windows/common/windows';
-import { remote } from 'electron';
+import { IWindowService, IWindowsService, INativeOpenDialogOptions, IEnterWorkspaceResult, IMessageBoxResult, IWindowConfiguration, IDevToolsOptions } from 'vs/platform/windows/common/windows';
 import { IRecentlyOpened } from 'vs/platform/history/common/history';
-import { ICommandAction } from 'vs/platform/actions/common/actions';
-import { isMacintosh } from 'vs/base/common/platform';
-import { normalizeNFC } from 'vs/base/common/strings';
+import { ISerializableCommandAction } from 'vs/platform/actions/common/actions';
 import { IWorkspaceFolderCreationData } from 'vs/platform/workspaces/common/workspaces';
+import { ParsedArgs } from 'vs/platform/environment/common/environment';
+import { URI } from 'vs/base/common/uri';
 
 export class WindowService implements IWindowService {
 
 	readonly onDidChangeFocus: Event<boolean>;
+	readonly onDidChangeMaximize: Event<boolean>;
 
 	_serviceBrand: any;
 
 	constructor(
 		private windowId: number,
+		private configuration: IWindowConfiguration,
 		@IWindowsService private windowsService: IWindowsService
 	) {
 		const onThisWindowFocus = mapEvent(filterEvent(windowsService.onWindowFocus, id => id === windowId), _ => true);
 		const onThisWindowBlur = mapEvent(filterEvent(windowsService.onWindowBlur, id => id === windowId), _ => false);
+		const onThisWindowMaximize = mapEvent(filterEvent(windowsService.onWindowMaximize, id => id === windowId), _ => true);
+		const onThisWindowUnmaximize = mapEvent(filterEvent(windowsService.onWindowUnmaximize, id => id === windowId), _ => false);
 		this.onDidChangeFocus = anyEvent(onThisWindowFocus, onThisWindowBlur);
+		this.onDidChangeMaximize = anyEvent(onThisWindowMaximize, onThisWindowUnmaximize);
 	}
 
 	getCurrentWindowId(): number {
 		return this.windowId;
+	}
+
+	getConfiguration(): IWindowConfiguration {
+		return this.configuration;
 	}
 
 	pickFileFolderAndOpen(options: INativeOpenDialogOptions): TPromise<void> {
@@ -58,12 +66,12 @@ export class WindowService implements IWindowService {
 		return this.windowsService.pickWorkspaceAndOpen(options);
 	}
 
-	reloadWindow(): TPromise<void> {
-		return this.windowsService.reloadWindow(this.windowId);
+	reloadWindow(args?: ParsedArgs): TPromise<void> {
+		return this.windowsService.reloadWindow(this.windowId, args);
 	}
 
-	openDevTools(): TPromise<void> {
-		return this.windowsService.openDevTools(this.windowId);
+	openDevTools(options?: IDevToolsOptions): TPromise<void> {
+		return this.windowsService.openDevTools(this.windowId, options);
 	}
 
 	toggleDevTools(): TPromise<void> {
@@ -74,12 +82,20 @@ export class WindowService implements IWindowService {
 		return this.windowsService.closeWorkspace(this.windowId);
 	}
 
+	enterWorkspace(path: string): TPromise<IEnterWorkspaceResult> {
+		return this.windowsService.enterWorkspace(this.windowId, path);
+	}
+
 	createAndEnterWorkspace(folders?: IWorkspaceFolderCreationData[], path?: string): TPromise<IEnterWorkspaceResult> {
 		return this.windowsService.createAndEnterWorkspace(this.windowId, folders, path);
 	}
 
 	saveAndEnterWorkspace(path: string): TPromise<IEnterWorkspaceResult> {
 		return this.windowsService.saveAndEnterWorkspace(this.windowId, path);
+	}
+
+	openWindow(paths: URI[], options?: { forceNewWindow?: boolean, forceReuseWindow?: boolean, forceOpenWorkspaceAsFile?: boolean, args?: ParsedArgs }): TPromise<void> {
+		return this.windowsService.openWindow(this.windowId, paths, options);
 	}
 
 	closeWindow(): TPromise<void> {
@@ -118,6 +134,10 @@ export class WindowService implements IWindowService {
 		return this.windowsService.unmaximizeWindow(this.windowId);
 	}
 
+	minimizeWindow(): TPromise<void> {
+		return this.windowsService.minimizeWindow(this.windowId);
+	}
+
 	onWindowTitleDoubleClick(): TPromise<void> {
 		return this.windowsService.onWindowTitleDoubleClick(this.windowId);
 	}
@@ -130,53 +150,19 @@ export class WindowService implements IWindowService {
 		return this.windowsService.showWindow(this.windowId);
 	}
 
-	showMessageBoxSync(options: Electron.MessageBoxOptions): number {
-		return remote.dialog.showMessageBox(remote.getCurrentWindow(), options);
-	}
-
 	showMessageBox(options: Electron.MessageBoxOptions): TPromise<IMessageBoxResult> {
-		return new TPromise((c, e) => {
-			return remote.dialog.showMessageBox(remote.getCurrentWindow(), options, (response: number, checkboxChecked: boolean) => {
-				c({ button: response, checkboxChecked });
-			});
-		});
+		return this.windowsService.showMessageBox(this.windowId, options);
 	}
 
-	showSaveDialog(options: Electron.SaveDialogOptions, callback?: (fileName: string) => void): string {
-
-		function normalizePath(path: string): string {
-			if (path && isMacintosh) {
-				path = normalizeNFC(path); // normalize paths returned from the OS
-			}
-
-			return path;
-		}
-
-		if (callback) {
-			return remote.dialog.showSaveDialog(remote.getCurrentWindow(), options, path => callback(normalizePath(path)));
-		}
-
-		return normalizePath(remote.dialog.showSaveDialog(remote.getCurrentWindow(), options)); // https://github.com/electron/electron/issues/4936
+	showSaveDialog(options: Electron.SaveDialogOptions): TPromise<string> {
+		return this.windowsService.showSaveDialog(this.windowId, options);
 	}
 
-	showOpenDialog(options: Electron.OpenDialogOptions, callback?: (fileNames: string[]) => void): string[] {
-
-		function normalizePaths(paths: string[]): string[] {
-			if (paths && paths.length > 0 && isMacintosh) {
-				paths = paths.map(path => normalizeNFC(path)); // normalize paths returned from the OS
-			}
-
-			return paths;
-		}
-
-		if (callback) {
-			return remote.dialog.showOpenDialog(remote.getCurrentWindow(), options, paths => callback(normalizePaths(paths)));
-		}
-
-		return normalizePaths(remote.dialog.showOpenDialog(remote.getCurrentWindow(), options)); // https://github.com/electron/electron/issues/4936
+	showOpenDialog(options: Electron.OpenDialogOptions): TPromise<string[]> {
+		return this.windowsService.showOpenDialog(this.windowId, options);
 	}
 
-	updateTouchBar(items: ICommandAction[][]): TPromise<void> {
+	updateTouchBar(items: ISerializableCommandAction[][]): TPromise<void> {
 		return this.windowsService.updateTouchBar(this.windowId, items);
 	}
 }

@@ -51,7 +51,7 @@ export function nextItemStylesheet(startOffset: vscode.Position, endOffset: vsco
 }
 
 export function prevItemStylesheet(startOffset: vscode.Position, endOffset: vscode.Position, editor: vscode.TextEditor, rootNode: CssNode): vscode.Selection | undefined {
-	let currentNode = <CssNode>getNode(rootNode, startOffset);
+	let currentNode = <CssNode>getNode(rootNode, startOffset, false);
 	if (!currentNode) {
 		currentNode = rootNode;
 	}
@@ -111,7 +111,7 @@ function getSelectionFromProperty(node: Node, document: vscode.TextDocument, sel
 		return new vscode.Selection(propertyNode.valueToken.start, propertyNode.valueToken.end);
 	}
 
-	let pos;
+	let pos: number = -1;
 	if (direction === 'prev') {
 		if (selectionStart.isEqual(propertyNode.valueToken.start)) {
 			return;

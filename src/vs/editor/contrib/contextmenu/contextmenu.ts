@@ -16,10 +16,11 @@ import { IContextMenuService, IContextViewService } from 'vs/platform/contextvie
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IMenuService, MenuId } from 'vs/platform/actions/common/actions';
-import { ICommonCodeEditor, IEditorContribution, IScrollEvent, ScrollType } from 'vs/editor/common/editorCommon';
+import { IEditorContribution, IScrollEvent, ScrollType } from 'vs/editor/common/editorCommon';
 import { EditorContextKeys } from 'vs/editor/common/editorContextKeys';
 import { registerEditorAction, registerEditorContribution, ServicesAccessor, EditorAction } from 'vs/editor/browser/editorExtensions';
 import { ICodeEditor, IEditorMouseEvent, MouseTargetType } from 'vs/editor/browser/editorBrowser';
+import { KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
 
 export interface IPosition {
 	x: number;
@@ -28,9 +29,9 @@ export interface IPosition {
 
 export class ContextMenuController implements IEditorContribution {
 
-	private static ID = 'editor.contrib.contextmenu';
+	private static readonly ID = 'editor.contrib.contextmenu';
 
-	public static get(editor: ICommonCodeEditor): ContextMenuController {
+	public static get(editor: ICodeEditor): ContextMenuController {
 		return editor.getContribution<ContextMenuController>(ContextMenuController.ID);
 	}
 
@@ -40,11 +41,11 @@ export class ContextMenuController implements IEditorContribution {
 
 	constructor(
 		editor: ICodeEditor,
-		@IContextMenuService private _contextMenuService: IContextMenuService,
-		@IContextViewService private _contextViewService: IContextViewService,
-		@IContextKeyService private _contextKeyService: IContextKeyService,
-		@IKeybindingService private _keybindingService: IKeybindingService,
-		@IMenuService private _menuService: IMenuService
+		@IContextMenuService private readonly _contextMenuService: IContextMenuService,
+		@IContextViewService private readonly _contextViewService: IContextViewService,
+		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
+		@IKeybindingService private readonly _keybindingService: IKeybindingService,
+		@IMenuService private readonly _menuService: IMenuService
 	) {
 		this._editor = editor;
 
@@ -93,7 +94,7 @@ export class ContextMenuController implements IEditorContribution {
 		}
 
 		// Unless the user triggerd the context menu through Shift+F10, use the mouse position as menu position
-		var forcedPosition: IPosition;
+		let forcedPosition: IPosition;
 		if (e.target.type !== MouseTargetType.TEXTAREA) {
 			forcedPosition = { x: e.event.posx, y: e.event.posy + 1 };
 		}
@@ -113,7 +114,7 @@ export class ContextMenuController implements IEditorContribution {
 		}
 
 		// Find actions available for menu
-		var menuActions = this._getMenuActions();
+		const menuActions = this._getMenuActions();
 
 		// Show menu if we have actions to show
 		if (menuActions.length > 0) {
@@ -140,23 +141,25 @@ export class ContextMenuController implements IEditorContribution {
 	private _doShowContextMenu(actions: IAction[], forcedPosition: IPosition = null): void {
 
 		// Disable hover
-		var oldHoverSetting = this._editor.getConfiguration().contribInfo.hover;
+		const oldHoverSetting = this._editor.getConfiguration().contribInfo.hover;
 		this._editor.updateOptions({
-			hover: false
+			hover: {
+				enabled: false
+			}
 		});
 
-		var menuPosition = forcedPosition;
+		let menuPosition = forcedPosition;
 		if (!menuPosition) {
 			// Ensure selection is visible
 			this._editor.revealPosition(this._editor.getPosition(), ScrollType.Immediate);
 
 			this._editor.render();
-			var cursorCoords = this._editor.getScrolledVisiblePosition(this._editor.getPosition());
+			const cursorCoords = this._editor.getScrolledVisiblePosition(this._editor.getPosition());
 
 			// Translate to absolute editor position
-			var editorCoords = dom.getDomNodePagePosition(this._editor.getDomNode());
-			var posx = editorCoords.left + cursorCoords.left;
-			var posy = editorCoords.top + cursorCoords.top + cursorCoords.height;
+			const editorCoords = dom.getDomNodePagePosition(this._editor.getDomNode());
+			const posx = editorCoords.left + cursorCoords.left;
+			const posy = editorCoords.top + cursorCoords.top + cursorCoords.height;
 
 			menuPosition = { x: posx, y: posy };
 		}
@@ -171,12 +174,12 @@ export class ContextMenuController implements IEditorContribution {
 			},
 
 			getActionItem: (action) => {
-				var keybinding = this._keybindingFor(action);
+				const keybinding = this._keybindingFor(action);
 				if (keybinding) {
 					return new ActionItem(action, action, { label: true, keybinding: keybinding.getLabel(), isMenu: true });
 				}
 
-				var customActionItem = <any>action;
+				const customActionItem = <any>action;
 				if (typeof customActionItem.getActionItem === 'function') {
 					return customActionItem.getActionItem();
 				}
@@ -224,13 +227,14 @@ class ShowContextMenu extends EditorAction {
 			alias: 'Show Editor Context Menu',
 			precondition: null,
 			kbOpts: {
-				kbExpr: EditorContextKeys.textFocus,
-				primary: KeyMod.Shift | KeyCode.F10
+				kbExpr: EditorContextKeys.textInputFocus,
+				primary: KeyMod.Shift | KeyCode.F10,
+				weight: KeybindingWeight.EditorContrib
 			}
 		});
 	}
 
-	public run(accessor: ServicesAccessor, editor: ICommonCodeEditor): void {
+	public run(accessor: ServicesAccessor, editor: ICodeEditor): void {
 		let contribution = ContextMenuController.get(editor);
 		contribution.showContextMenu();
 	}

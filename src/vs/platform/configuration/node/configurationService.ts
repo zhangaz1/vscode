@@ -9,7 +9,7 @@ import { IConfigurationRegistry, Extensions } from 'vs/platform/configuration/co
 import { IDisposable, Disposable } from 'vs/base/common/lifecycle';
 import { IConfigurationService, IConfigurationChangeEvent, IConfigurationOverrides, ConfigurationTarget, compare, isConfigurationOverrides, IConfigurationData } from 'vs/platform/configuration/common/configuration';
 import { DefaultConfigurationModel, Configuration, ConfigurationChangeEvent } from 'vs/platform/configuration/common/configurationModels';
-import Event, { Emitter } from 'vs/base/common/event';
+import { Event, Emitter } from 'vs/base/common/event';
 import { IEnvironmentService } from 'vs/platform/environment/common/environment';
 import { TPromise } from 'vs/base/common/winjs.base';
 import { equals } from 'vs/base/common/objects';
@@ -23,7 +23,7 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
 	private _configuration: Configuration;
 	private userConfiguration: UserConfiguration;
 
-	private _onDidChangeConfiguration: Emitter<IConfigurationChangeEvent> = this._register(new Emitter<IConfigurationChangeEvent>());
+	private readonly _onDidChangeConfiguration: Emitter<IConfigurationChangeEvent> = this._register(new Emitter<IConfigurationChangeEvent>());
 	readonly onDidChangeConfiguration: Event<IConfigurationChangeEvent> = this._onDidChangeConfiguration.event;
 
 	constructor(
@@ -48,18 +48,14 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
 		return this.configuration.toData();
 	}
 
-	getConfiguration<T>(): T;
-	getConfiguration<T>(section: string): T;
-	getConfiguration<T>(overrides: IConfigurationOverrides): T;
-	getConfiguration<T>(section: string, overrides: IConfigurationOverrides): T;
-	getConfiguration(arg1?: any, arg2?: any): any {
+	getValue<T>(): T;
+	getValue<T>(section: string): T;
+	getValue<T>(overrides: IConfigurationOverrides): T;
+	getValue<T>(section: string, overrides: IConfigurationOverrides): T;
+	getValue(arg1?: any, arg2?: any): any {
 		const section = typeof arg1 === 'string' ? arg1 : void 0;
 		const overrides = isConfigurationOverrides(arg1) ? arg1 : isConfigurationOverrides(arg2) ? arg2 : {};
-		return this.configuration.getSection(section, overrides, null);
-	}
-
-	getValue(key: string, overrides: IConfigurationOverrides = {}): any {
-		return this.configuration.getValue(key, overrides, null);
+		return this.configuration.getValue(section, overrides, null);
 	}
 
 	updateValue(key: string, value: any): TPromise<void>;
@@ -77,7 +73,7 @@ export class ConfigurationService extends Disposable implements IConfigurationSe
 		workspaceFolder: T
 		value: T
 	} {
-		return this.configuration.lookup<T>(key, {}, null);
+		return this.configuration.inspect<T>(key, {}, null);
 	}
 
 	keys(): {

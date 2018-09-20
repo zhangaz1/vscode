@@ -3,8 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-'use strict';
-
 import * as assert from 'assert';
 import { Platform } from 'vs/base/common/platform';
 import { TerminalLinkHandler, LineColumnInfo } from 'vs/workbench/parts/terminal/electron-browser/terminalLinkHandler';
@@ -22,8 +20,8 @@ class TestTerminalLinkHandler extends TerminalLinkHandler {
 }
 
 class TestXterm {
-	public setHypertextLinkHandler() { }
-	public setHypertextValidationCallback() { }
+	public webLinksInit() { }
+	public registerLinkMatcher() { }
 }
 
 interface LinkFormatInfo {
@@ -134,10 +132,10 @@ suite('Workbench - TerminalLinkHandler', () => {
 
 				const supportedLinkFormats: LinkFormatInfo[] = [
 					{ urlFormat: '{0}' },
-					// { urlFormat: '{0} on line {1}', line: '5' },
-					// { urlFormat: '{0} on line {1}, column {2}', line: '5', column: '3' },
-					// { urlFormat: '{0}:line {1}', line: '5' },
-					// { urlFormat: '{0}:line {1}, column {2}', line: '5', column: '3' },
+					{ urlFormat: '{0} on line {1}', line: '5' },
+					{ urlFormat: '{0} on line {1}, column {2}', line: '5', column: '3' },
+					{ urlFormat: '{0}:line {1}', line: '5' },
+					{ urlFormat: '{0}:line {1}, column {2}', line: '5', column: '3' },
 					{ urlFormat: '{0}({1})', line: '5' },
 					{ urlFormat: '{0} ({1})', line: '5' },
 					{ urlFormat: '{0}({1},{2})', line: '5', column: '3' },
@@ -169,7 +167,8 @@ suite('Workbench - TerminalLinkHandler', () => {
 
 	suite('preprocessPath', () => {
 		test('Windows', () => {
-			const linkHandler = new TestTerminalLinkHandler(new TestXterm(), Platform.Windows, 'C:\\base', null, null, null);
+			const linkHandler = new TestTerminalLinkHandler(new TestXterm(), Platform.Windows, null, null, null, null);
+			linkHandler.initialCwd = 'C:\\base';
 
 			let stub = sinon.stub(path, 'join', function (arg1: string, arg2: string) {
 				return arg1 + '\\' + arg2;
@@ -182,7 +181,8 @@ suite('Workbench - TerminalLinkHandler', () => {
 		});
 
 		test('Linux', () => {
-			const linkHandler = new TestTerminalLinkHandler(new TestXterm(), Platform.Linux, '/base', null, null, null);
+			const linkHandler = new TestTerminalLinkHandler(new TestXterm(), Platform.Linux, null, null, null, null);
+			linkHandler.initialCwd = '/base';
 
 			let stub = sinon.stub(path, 'join', function (arg1: string, arg2: string) {
 				return arg1 + '/' + arg2;
